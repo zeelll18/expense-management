@@ -44,8 +44,10 @@ const createTables = () => {
       currency TEXT NOT NULL,
       category TEXT NOT NULL,
       description TEXT,
+      paid_by TEXT,
+      remarks TEXT,
       date TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'waiting_approval', 'approved', 'rejected')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );

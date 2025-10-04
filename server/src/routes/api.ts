@@ -105,15 +105,41 @@ router.get('/users/:companyId', (req: Request, res: Response) => {
   }
 });
 
+// Companies - Get company info
+router.get('/companies/:companyId', (req: Request, res: Response) => {
+  const { companyId } = req.params;
+
+  try {
+    const company = db.prepare('SELECT * FROM companies WHERE id = ?').get(companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    res.json(company);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Expenses - Submit
 router.post('/expenses', (req: Request, res: Response) => {
-  const { userId, amount, currency, category, description, date } = req.body;
+  const { userId, amount, currency, category, description, paidBy, remarks, date, status } = req.body;
 
   try {
     const insert = db.prepare(`
-      INSERT INTO expenses (user_id, amount, currency, category, description, date) VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO expenses (user_id, amount, currency, category, description, paid_by, remarks, date, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    const result = insert.run(userId, amount, currency, category, description, date);
+    const result = insert.run(
+      userId,
+      amount,
+      currency,
+      category,
+      description,
+      paidBy || null,
+      remarks || null,
+      date,
+      status || 'draft'
+    );
 
     res.json({ expenseId: result.lastInsertRowid });
   } catch (error: any) {

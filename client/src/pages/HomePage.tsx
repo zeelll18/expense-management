@@ -59,6 +59,15 @@ const HomePage: React.FC = () =>
               Approvals
             </Button>
           )}
+          {role === "employee" && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => navigate("/expenses")}
+            >
+              My Expenses
+            </Button>
+          )}
           <Button
             variant="outlined"
             onClick={handleLogout}

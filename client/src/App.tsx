@@ -10,6 +10,7 @@ import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
 import UserManagementPage from "./pages/UserManagementPage";
 import ApprovalsPage from "./pages/ApprovalsPage";
+import ExpensesPage from "./pages/ExpensesPage";
 import {store} from "./store";
 
 const theme = createTheme();
@@ -17,7 +18,7 @@ const theme = createTheme();
 const App: React.FC = () => (
   <Provider store={store}>
     <ThemeProvider theme={theme}>
-      <SnackbarProvider maxSnack={3} anchorOrigin={{vertical: "top", horizontal: "right"}}>
+      <SnackbarProvider maxSnack={3} anchorOrigin={{vertical: "bottom", horizontal: "left"}}>
         <CssBaseline />
         <Router>
           <Routes>
@@ -27,6 +28,7 @@ const App: React.FC = () => (
             <Route path="/home" element={<HomePage />} />
             <Route path="/users" element={<UserManagementPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
+            <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
           </Routes>
         </Router>
