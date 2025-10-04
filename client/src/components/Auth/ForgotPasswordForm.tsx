@@ -1,7 +1,8 @@
 import {Box, Button, Link, TextField} from "@mui/material";
-import React from "react";
+import React, {useState} from "react";
 import {useForm} from "react-hook-form";
 import {useNavigate} from "react-router-dom";
+import {useSnackbar} from "notistack";
 import api from "../../utils/api";
 
 interface ForgotPasswordFormData
@@ -17,19 +18,29 @@ const ForgotPasswordForm: React.FC = () =>
     formState: {errors}
   } = useForm<ForgotPasswordFormData>();
   const navigate = useNavigate();
+  const {enqueueSnackbar} = useSnackbar();
+  const [loading, setLoading] = useState(false);
 
   const onSubmit = async(data: ForgotPasswordFormData) =>
   {
+    setLoading(true);
     try
     {
-      await api.post("/auth/forgot-password", data);
-      // Handle success (e.g., show message: "Reset link sent")
-      navigate("/login");
+      const response = await api.post("/auth/forgot-password", data);
+      enqueueSnackbar(response.data.message || "New password sent to your email", {variant: "success"});
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     }
-    catch(error)
+    catch(error: any)
     {
       console.error("Forgot password failed:", error);
-      // Handle error
+      const errorMessage = error.response?.data?.error || "Failed to reset password. Please try again.";
+      enqueueSnackbar(errorMessage, {variant: "error"});
+    }
+    finally
+    {
+      setLoading(false);
     }
   };
 
@@ -51,12 +62,13 @@ const ForgotPasswordForm: React.FC = () =>
         type="submit"
         fullWidth
         variant="contained"
+        disabled={loading}
         sx={{
           mt: 3,
           mb: 2
         }}
       >
-        Send Reset Link
+        {loading ? "Sending..." : "Send New Password"}
       </Button>
       <Box sx={{textAlign: "center"}}>
         <Link href="/login" variant="body2">

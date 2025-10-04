@@ -8,6 +8,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
+import UserManagementPage from "./pages/UserManagementPage";
 import {store} from "./store";
 
 const theme = createTheme();
@@ -23,6 +24,7 @@ const App: React.FC = () => (
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/home" element={<HomePage />} />
+            <Route path="/users" element={<UserManagementPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
           </Routes>
         </Router>

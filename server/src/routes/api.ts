@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import db from '../db/database';
+import { sendPasswordResetEmail, generateRandomPassword } from '../utils/email';
 
 const router = Router();
 
@@ -41,6 +42,37 @@ router.post('/auth/login', (req: Request, res: Response) => {
     }
 
     res.json({ userId: user.id, companyId: user.company_id, role: user.role });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.post('/auth/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  try {
+    // Check if user exists
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
+
+    if (!user) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
+    // Generate new random password
+    const newPassword = generateRandomPassword();
+
+    // Update user password in database
+    const update = db.prepare('UPDATE users SET password = ? WHERE email = ?');
+    update.run(newPassword, email);
+
+    // Send email with new password
+    const emailSent = await sendPasswordResetEmail(email, newPassword);
+
+    if (!emailSent) {
+      return res.status(500).json({ error: 'Failed to send email. Please try again later.' });
+    }
+
+    res.json({ message: 'New password sent to your email' });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
