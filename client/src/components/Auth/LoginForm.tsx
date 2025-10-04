@@ -3,6 +3,7 @@ import React from "react";
 import {useForm} from "react-hook-form";
 import {useDispatch} from "react-redux";
 import {useNavigate} from "react-router-dom";
+import {useSnackbar} from "notistack";
 import {setCredentials} from "../../store/slices/authSlice";
 import api from "../../utils/api";
 
@@ -21,6 +22,7 @@ const LoginForm: React.FC = () =>
   } = useForm<LoginFormData>();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const {enqueueSnackbar} = useSnackbar();
 
   const onSubmit = async(data: LoginFormData) =>
   {
@@ -28,15 +30,18 @@ const LoginForm: React.FC = () =>
     {
       const response = await api.post("/auth/login", data);
       dispatch(setCredentials({
-        token: response.data.token,
-        user: response.data.user
+        userId: response.data.userId,
+        companyId: response.data.companyId,
+        role: response.data.role
       }));
-      navigate("/dashboard"); // Redirect to dashboard after login
+      enqueueSnackbar("Login successful!", {variant: "success"});
+      navigate("/home"); // Redirect to home after login
     }
-    catch(error)
+    catch(error: any)
     {
       console.error("Login failed:", error);
-      // Handle error (e.g., show toast)
+      const errorMessage = error.response?.data?.error || "Login failed. Please try again.";
+      enqueueSnackbar(errorMessage, {variant: "error"});
     }
   };
 

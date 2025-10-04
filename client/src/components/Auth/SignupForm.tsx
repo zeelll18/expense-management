@@ -4,6 +4,7 @@ import React, {useState} from "react";
 import {useForm} from "react-hook-form";
 import {useDispatch} from "react-redux";
 import {useNavigate} from "react-router-dom";
+import {useSnackbar} from "notistack";
 import {setCredentials} from "../../store/slices/authSlice";
 import api from "../../utils/api";
 import CountrySelect from "../common/CountrySelect";
@@ -11,6 +12,7 @@ import TermsCheckbox from "../common/TermsCheckbox";
 
 interface SignupFormData
 {
+  name: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -29,29 +31,43 @@ const SignupForm: React.FC = () =>
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const {enqueueSnackbar} = useSnackbar();
   const password = watch("password");
 
   const onSubmit = async(data: SignupFormData) =>
   {
-    if(!agreedToTerms) return; // Prevent submit if not agreed
+    if(!agreedToTerms) {
+      enqueueSnackbar("Please agree to the terms and conditions", {variant: "warning"});
+      return;
+    }
 
     try
     {
+      // Get currency from country selection
+      const countriesResponse = await fetch("https://restcountries.com/v3.1/all?fields=name,currencies");
+      const countries = await countriesResponse.json();
+      const selectedCountry = countries.find((c: any) => c.name.common === data.country);
+      const currency = selectedCountry ? Object.keys(selectedCountry.currencies)[0] : "USD";
+
       const response = await api.post("/auth/signup", {
+        name: data.name,
         email: data.email,
         password: data.password,
-        country: data.country
+        currency
       });
       dispatch(setCredentials({
-        token: response.data.token,
-        user: response.data.user
+        userId: response.data.userId,
+        companyId: response.data.companyId,
+        role: response.data.role
       }));
-      navigate("/dashboard"); // Redirect after signup
+      enqueueSnackbar("Account created successfully!", {variant: "success"});
+      navigate("/home"); // Redirect after signup
     }
-    catch(error)
+    catch(error: any)
     {
       console.error("Signup failed:", error);
-      // Handle error
+      const errorMessage = error.response?.data?.error || "Signup failed. Please try again.";
+      enqueueSnackbar(errorMessage, {variant: "error"});
     }
   };
 
@@ -61,10 +77,21 @@ const SignupForm: React.FC = () =>
         margin="normal"
         required
         fullWidth
+        id="name"
+        label="Full Name"
+        autoComplete="name"
+        autoFocus
+        {...register("name", {required: "Name is required"})}
+        error={!!errors.name}
+        helperText={errors.name?.message}
+      />
+      <TextField
+        margin="normal"
+        required
+        fullWidth
         id="email"
         label="Email Address"
         autoComplete="email"
-        autoFocus
         {...register("email", {required: "Email is required"})}
         error={!!errors.email}
         helperText={errors.email?.message}
