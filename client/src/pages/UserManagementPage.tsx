@@ -10,8 +10,10 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Chip
+  Chip,
+  IconButton
 } from "@mui/material";
+import {Settings} from "@mui/icons-material";
 import React, {useEffect, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {useSelector} from "react-redux";
@@ -19,6 +21,7 @@ import {useSnackbar} from "notistack";
 import {RootState} from "../store";
 import api from "../utils/api";
 import AddUserDialog from "../components/UserManagement/AddUserDialog";
+import ApprovalSettingsDialog from "../components/UserManagement/ApprovalSettingsDialog";
 
 interface User
 {
@@ -37,6 +40,8 @@ const UserManagementPage: React.FC = () =>
   const [users, setUsers] = useState<User[]>([]);
   const [managers, setManagers] = useState<Array<{id: number; name: string}>>([]);
   const [openDialog, setOpenDialog] = useState(false);
+  const [openApprovalSettings, setOpenApprovalSettings] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Check if user is admin
@@ -96,6 +101,18 @@ const UserManagementPage: React.FC = () =>
     fetchUsers();
   };
 
+  const handleOpenApprovalSettings = (user: User) =>
+  {
+    setSelectedUser(user);
+    setOpenApprovalSettings(true);
+  };
+
+  const handleCloseApprovalSettings = () =>
+  {
+    setOpenApprovalSettings(false);
+    setSelectedUser(null);
+  };
+
   const getRoleColor = (userRole: string) =>
   {
     switch(userRole)
@@ -139,18 +156,19 @@ const UserManagementPage: React.FC = () =>
                 <TableCell><strong>Email</strong></TableCell>
                 <TableCell><strong>Role</strong></TableCell>
                 <TableCell><strong>Manager ID</strong></TableCell>
+                <TableCell><strong>Approval Settings</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -168,6 +186,22 @@ const UserManagementPage: React.FC = () =>
                       />
                     </TableCell>
                     <TableCell>{user.manager_id || "-"}</TableCell>
+                    <TableCell>
+                      {user.role !== "admin" ? (
+                        <IconButton
+                          color="primary"
+                          size="small"
+                          onClick={() => handleOpenApprovalSettings(user)}
+                          title="Configure Approval Settings"
+                        >
+                          <Settings />
+                        </IconButton>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          N/A
+                        </Typography>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -181,6 +215,13 @@ const UserManagementPage: React.FC = () =>
         onClose={handleCloseDialog}
         onUserAdded={handleUserAdded}
         managers={managers}
+      />
+
+      <ApprovalSettingsDialog
+        open={openApprovalSettings}
+        onClose={handleCloseApprovalSettings}
+        user={selectedUser}
+        allUsers={users}
       />
     </Container>
   );

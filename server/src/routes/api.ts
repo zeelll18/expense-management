@@ -174,9 +174,32 @@ router.post('/approval-rules', (req: Request, res: Response) => {
       INSERT INTO approval_rules (company_id, rule_type, percentage, specific_approver_id, is_manager_approver)
       VALUES (?, ?, ?, ?, ?)
     `);
-    const result = insert.run(companyId, ruleType, percentage || null, specificApproverId || null, isManagerApprover);
+    // Convert boolean to integer for SQLite (1 = true, 0 = false)
+    const result = insert.run(
+      companyId,
+      ruleType,
+      percentage || null,
+      specificApproverId || null,
+      isManagerApprover ? 1 : 0
+    );
 
     res.json({ ruleId: result.lastInsertRowid });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Approvers - Add to approval rule
+router.post('/approvers', (req: Request, res: Response) => {
+  const { approvalRuleId, userId, sequence } = req.body;
+
+  try {
+    const insert = db.prepare(`
+      INSERT INTO approvers (approval_rule_id, user_id, sequence) VALUES (?, ?, ?)
+    `);
+    const result = insert.run(approvalRuleId, userId, sequence);
+
+    res.json({ approverId: result.lastInsertRowid });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
