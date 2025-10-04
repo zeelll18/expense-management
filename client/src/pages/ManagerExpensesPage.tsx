@@ -14,19 +14,20 @@ import {
   IconButton,
   Tooltip
 } from "@mui/material";
-import {Send} from "@mui/icons-material";
+import {CheckCircle, Cancel} from "@mui/icons-material";
 import React, {useEffect, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {useSelector} from "react-redux";
 import {useSnackbar} from "notistack";
 import {RootState} from "../store";
 import api from "../utils/api";
-import AddExpenseDialog from "../components/Expenses/AddExpenseDialog";
 
 interface Expense
 {
   id: number;
   user_id: number;
+  employee_name: string;
+  employee_email: string;
   amount: number;
   currency: string;
   category: string;
@@ -38,27 +39,33 @@ interface Expense
   created_at: string;
 }
 
-interface User
-{
-  id: number;
-  name: string;
-}
-
-const ExpensesPage: React.FC = () =>
+const ManagerExpensesPage: React.FC = () =>
 {
   const navigate = useNavigate();
   const {enqueueSnackbar} = useSnackbar();
-  const {userId, companyId} = useSelector((state: RootState) => state.auth);
+  const {userId, companyId, role} = useSelector((state: RootState) => state.auth);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [openDialog, setOpenDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Check if user is manager or admin
+  useEffect(() =>
+  {
+    if(role !== "manager" && role !== "admin")
+    {
+      enqueueSnackbar("Access denied. Manager or Admin only.", {variant: "error"});
+      navigate("/home");
+    }
+  }, [role, navigate, enqueueSnackbar]);
 
   const fetchExpenses = async() =>
   {
     try
     {
-      const response = await api.get(`/expenses/user/${userId}`);
+      // Admin sees all company expenses, manager sees their team's expenses
+      const endpoint = role === "admin"
+        ? `/expenses/company/${companyId}`
+        : `/expenses/manager/${userId}`;
+      const response = await api.get(endpoint);
       setExpenses(response.data.expenses);
     }
     catch(error: any)
@@ -72,66 +79,50 @@ const ExpensesPage: React.FC = () =>
     }
   };
 
-  const fetchUsers = async() =>
-  {
-    try
-    {
-      const response = await api.get(`/users/${companyId}`);
-      setUsers(response.data.users);
-    }
-    catch(error: any)
-    {
-      console.error("Failed to fetch users:", error);
-    }
-  };
-
   useEffect(() =>
   {
-    if(userId && companyId)
+    if(userId && (role === "manager" || role === "admin"))
     {
       fetchExpenses();
-      fetchUsers();
     }
-  }, [userId, companyId]);
+  }, [userId, role]);
 
-  const handleAddExpense = () =>
-  {
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () =>
-  {
-    setOpenDialog(false);
-  };
-
-  const handleExpenseAdded = () =>
-  {
-    fetchExpenses();
-  };
-
-  const handleSubmitForApproval = async(expenseId: number) =>
+  const handleApprove = async(expenseId: number) =>
   {
     try
     {
       await api.post(`/expenses/${expenseId}/status`, {
-        status: "waiting_approval"
+        status: "approved"
       });
 
-      enqueueSnackbar("Expense submitted for approval!", {variant: "success"});
+      enqueueSnackbar("Expense approved successfully!", {variant: "success"});
       fetchExpenses();
     }
     catch(error: any)
     {
-      console.error("Submit failed:", error);
-      const errorMessage = error.response?.data?.error || "Failed to submit expense";
+      console.error("Approval failed:", error);
+      const errorMessage = error.response?.data?.error || "Failed to approve expense";
       enqueueSnackbar(errorMessage, {variant: "error"});
     }
   };
 
-  const getUserName = (userId: number) =>
+  const handleReject = async(expenseId: number) =>
   {
-    const user = users.find(u => u.id === userId);
-    return user ? user.name : `User ${userId}`;
+    try
+    {
+      await api.post(`/expenses/${expenseId}/status`, {
+        status: "rejected"
+      });
+
+      enqueueSnackbar("Expense rejected", {variant: "info"});
+      fetchExpenses();
+    }
+    catch(error: any)
+    {
+      console.error("Rejection failed:", error);
+      const errorMessage = error.response?.data?.error || "Failed to reject expense";
+      enqueueSnackbar(errorMessage, {variant: "error"});
+    }
   };
 
   const getStatusColor = (status: string) =>
@@ -168,21 +159,18 @@ const ExpensesPage: React.FC = () =>
     }
   };
 
+  if(role !== "manager" && role !== "admin") return null;
+
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="xl">
       <Box sx={{marginTop: 4, marginBottom: 4}}>
         <Box sx={{display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3}}>
           <Typography component="h1" variant="h4">
-            My Expenses
+            {role === "admin" ? "All Company Expenses" : "Team Expenses"}
           </Typography>
-          <Box>
-            <Button variant="outlined" onClick={() => navigate("/home")} sx={{mr: 2}}>
-              Back to Home
-            </Button>
-            <Button variant="contained" onClick={handleAddExpense}>
-              Add Expense
-            </Button>
-          </Box>
+          <Button variant="outlined" onClick={() => navigate("/home")}>
+            Back to Home
+          </Button>
         </Box>
 
         <TableContainer component={Paper}>
@@ -197,7 +185,7 @@ const ExpensesPage: React.FC = () =>
                 <TableCell><strong>Remarks</strong></TableCell>
                 <TableCell><strong>Amount</strong></TableCell>
                 <TableCell><strong>Status</strong></TableCell>
-                <TableCell><strong>Action</strong></TableCell>
+                <TableCell><strong>Actions</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -210,13 +198,22 @@ const ExpensesPage: React.FC = () =>
               ) : expenses.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} align="center">
-                    No expenses found. Click "Add Expense" to create one.
+                    No expenses found
                   </TableCell>
                 </TableRow>
               ) : (
                 expenses.map((expense) => (
                   <TableRow key={expense.id}>
-                    <TableCell>{getUserName(expense.user_id)}</TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {expense.employee_name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {expense.employee_email}
+                        </Typography>
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       {expense.description?.substring(0, 40)}
                       {expense.description?.length > 40 ? "..." : ""}
@@ -243,16 +240,27 @@ const ExpensesPage: React.FC = () =>
                       />
                     </TableCell>
                     <TableCell>
-                      {expense.status === "draft" ? (
-                        <Tooltip title="Submit for Approval">
-                          <IconButton
-                            color="primary"
-                            size="small"
-                            onClick={() => handleSubmitForApproval(expense.id)}
-                          >
-                            <Send />
-                          </IconButton>
-                        </Tooltip>
+                      {expense.status === "draft" || expense.status === "waiting_approval" ? (
+                        <Box sx={{display: "flex", gap: 1}}>
+                          <Tooltip title="Approve">
+                            <IconButton
+                              color="success"
+                              size="small"
+                              onClick={() => handleApprove(expense.id)}
+                            >
+                              <CheckCircle />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reject">
+                            <IconButton
+                              color="error"
+                              size="small"
+                              onClick={() => handleReject(expense.id)}
+                            >
+                              <Cancel />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       ) : (
                         <Typography variant="caption" color="text.secondary">
                           -
@@ -266,14 +274,8 @@ const ExpensesPage: React.FC = () =>
           </Table>
         </TableContainer>
       </Box>
-
-      <AddExpenseDialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        onExpenseAdded={handleExpenseAdded}
-      />
     </Container>
   );
 };
 
-export default ExpensesPage;
+export default ManagerExpensesPage;

@@ -11,6 +11,7 @@ import HomePage from "./pages/HomePage";
 import UserManagementPage from "./pages/UserManagementPage";
 import ApprovalsPage from "./pages/ApprovalsPage";
 import ExpensesPage from "./pages/ExpensesPage";
+import ManagerExpensesPage from "./pages/ManagerExpensesPage";
 import {store} from "./store";
 
 const theme = createTheme();
@@ -29,6 +30,7 @@ const App: React.FC = () => (
             <Route path="/users" element={<UserManagementPage />} />
             <Route path="/approvals" element={<ApprovalsPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
+            <Route path="/manager-expenses" element={<ManagerExpensesPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
           </Routes>
         </Router>

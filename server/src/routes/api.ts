@@ -61,16 +61,16 @@ router.post('/auth/forgot-password', async (req: Request, res: Response) => {
     // Generate new random password
     const newPassword = generateRandomPassword();
 
-    // Update user password in database
-    const update = db.prepare('UPDATE users SET password = ? WHERE email = ?');
-    update.run(newPassword, email);
-
-    // Send email with new password
+    // Send email first before updating password
     const emailSent = await sendPasswordResetEmail(email, newPassword);
 
     if (!emailSent) {
       return res.status(500).json({ error: 'Failed to send email. Please try again later.' });
     }
+
+    // Only update password if email was sent successfully
+    const update = db.prepare('UPDATE users SET password = ? WHERE email = ?');
+    update.run(newPassword, email);
 
     res.json({ message: 'New password sent to your email' });
   } catch (error: any) {
@@ -158,6 +158,59 @@ router.get('/expenses/user/:userId', (req: Request, res: Response) => {
   }
 });
 
+// Get expenses for manager's team
+router.get('/expenses/manager/:managerId', (req: Request, res: Response) => {
+  const { managerId } = req.params;
+
+  try {
+    const expenses = db.prepare(`
+      SELECT e.*, u.name as employee_name, u.email as employee_email
+      FROM expenses e
+      JOIN users u ON e.user_id = u.id
+      WHERE u.manager_id = ?
+      ORDER BY e.created_at DESC
+    `).all(managerId);
+    res.json({ expenses });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get all expenses for admin (all employees in company)
+router.get('/expenses/company/:companyId', (req: Request, res: Response) => {
+  const { companyId } = req.params;
+
+  try {
+    const expenses = db.prepare(`
+      SELECT e.*, u.name as employee_name, u.email as employee_email
+      FROM expenses e
+      JOIN users u ON e.user_id = u.id
+      WHERE u.company_id = ?
+      ORDER BY e.created_at DESC
+    `).all(companyId);
+    res.json({ expenses });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Update expense status (for manager approval/rejection)
+router.post('/expenses/:expenseId/status', (req: Request, res: Response) => {
+  const { expenseId } = req.params;
+  const { status, comments } = req.body;
+
+  try {
+    const update = db.prepare(`
+      UPDATE expenses SET status = ? WHERE id = ?
+    `);
+    update.run(status, expenseId);
+
+    res.json({ success: true, message: `Expense ${status}` });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Approvals - View pending, approve/reject
 router.get('/approvals/pending/:approverId', (req: Request, res: Response) => {
   const { approverId } = req.params;
@@ -193,15 +246,19 @@ router.post('/approvals/:approvalId', (req: Request, res: Response) => {
 
 // Approval Rules
 router.post('/approval-rules', (req: Request, res: Response) => {
-  const { companyId, ruleType, percentage, specificApproverId, isManagerApprover } = req.body;
+  const { userId, companyId, ruleType, percentage, specificApproverId, isManagerApprover } = req.body;
 
   try {
+    // Delete existing rule for this user if any
+    db.prepare('DELETE FROM approval_rules WHERE user_id = ?').run(userId);
+
     const insert = db.prepare(`
-      INSERT INTO approval_rules (company_id, rule_type, percentage, specific_approver_id, is_manager_approver)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO approval_rules (user_id, company_id, rule_type, percentage, specific_approver_id, is_manager_approver)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
     // Convert boolean to integer for SQLite (1 = true, 0 = false)
     const result = insert.run(
+      userId,
       companyId,
       ruleType,
       percentage || null,
@@ -210,6 +267,36 @@ router.post('/approval-rules', (req: Request, res: Response) => {
     );
 
     res.json({ ruleId: result.lastInsertRowid });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get approval rules for a user
+router.get('/approval-rules/user/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+
+  try {
+    const rule = db.prepare('SELECT * FROM approval_rules WHERE user_id = ?').get(userId);
+    res.json({ rule });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Get approvers for an approval rule
+router.get('/approvers/:approvalRuleId', (req: Request, res: Response) => {
+  const { approvalRuleId } = req.params;
+
+  try {
+    const approvers = db.prepare(`
+      SELECT a.*, u.name as user_name
+      FROM approvers a
+      JOIN users u ON a.user_id = u.id
+      WHERE a.approval_rule_id = ?
+      ORDER BY a.sequence
+    `).all(approvalRuleId);
+    res.json({ approvers });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

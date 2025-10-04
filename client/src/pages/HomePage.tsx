@@ -43,21 +43,39 @@ const HomePage: React.FC = () =>
         </Box>
         <Box sx={{mt: 4, display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center"}}>
           {role === "admin" && (
-            <Button
-              variant="contained"
-              onClick={() => navigate("/users")}
-            >
-              User Management
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                onClick={() => navigate("/users")}
+              >
+                User Management
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate("/manager-expenses")}
+              >
+                Approve Expenses
+              </Button>
+            </>
           )}
           {role === "manager" && (
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => navigate("/approvals")}
-            >
-              Approvals
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate("/manager-expenses")}
+              >
+                Team Expenses
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => navigate("/approvals")}
+              >
+                Approvals
+              </Button>
+            </>
           )}
           {role === "employee" && (
             <Button

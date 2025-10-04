@@ -54,12 +54,14 @@ const createTables = () => {
 
     CREATE TABLE IF NOT EXISTS approval_rules (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
       company_id INTEGER NOT NULL,
       rule_type TEXT NOT NULL CHECK(rule_type IN ('percentage', 'specific', 'hybrid')),
       percentage INTEGER,
       specific_approver_id INTEGER,
       is_manager_approver BOOLEAN DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (company_id) REFERENCES companies(id),
       FOREIGN KEY (specific_approver_id) REFERENCES users(id)
     );

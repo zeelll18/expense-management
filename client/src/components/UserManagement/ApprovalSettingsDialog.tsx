@@ -62,11 +62,13 @@ const ApprovalSettingsDialog: React.FC<ApprovalSettingsDialogProps> = ({
   const {companyId} = useSelector((state: RootState) => state.auth);
   const [approvers, setApprovers] = useState<Approver[]>([]);
   const [selectedApproverId, setSelectedApproverId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const {
     control,
     watch,
     reset,
+    setValue,
     handleSubmit,
     formState: {errors}
   } = useForm<ApprovalSettingsFormData>({
@@ -79,6 +81,47 @@ const ApprovalSettingsDialog: React.FC<ApprovalSettingsDialogProps> = ({
   });
 
   const ruleType = watch("ruleType");
+
+  // Fetch existing approval rules and approvers when dialog opens
+  useEffect(() => {
+    const fetchApprovalSettings = async () => {
+      if (!open || !user) return;
+
+      setLoading(true);
+      try {
+        // Get approval rule for this specific user
+        const rulesResponse = await api.get(`/approval-rules/user/${user.id}`);
+        const rule = rulesResponse.data.rule;
+
+        if (rule) {
+          setValue("ruleType", rule.rule_type);
+          setValue("percentage", rule.percentage);
+          setValue("specificApproverId", rule.specific_approver_id);
+          setValue("isManagerApprover", rule.is_manager_approver === 1);
+
+          // Fetch approvers for this rule
+          const approversResponse = await api.get(`/approvers/${rule.id}`);
+          const fetchedApprovers = approversResponse.data.approvers;
+
+          if (fetchedApprovers && fetchedApprovers.length > 0) {
+            setApprovers(
+              fetchedApprovers.map((a: any) => ({
+                userId: a.user_id,
+                name: a.user_name,
+                sequence: a.sequence
+              }))
+            );
+          }
+        }
+      } catch (error: any) {
+        console.error("Failed to fetch approval settings:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApprovalSettings();
+  }, [open, user, setValue]);
 
   const handleAddApprover = () =>
   {
@@ -115,10 +158,13 @@ const ApprovalSettingsDialog: React.FC<ApprovalSettingsDialogProps> = ({
 
   const onSubmit = async(data: ApprovalSettingsFormData) =>
   {
+    if(!user) return;
+
     try
     {
       // Create approval rule
       const ruleResponse = await api.post("/approval-rules", {
+        userId: user.id,
         companyId,
         ruleType: data.ruleType,
         percentage: data.ruleType === "percentage" || data.ruleType === "hybrid" ? data.percentage : null,
@@ -174,11 +220,17 @@ const ApprovalSettingsDialog: React.FC<ApprovalSettingsDialogProps> = ({
       </DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            User: {user.email}
-          </Typography>
+          {loading ? (
+            <Box sx={{display: "flex", justifyContent: "center", p: 3}}>
+              <Typography>Loading approval settings...</Typography>
+            </Box>
+          ) : (
+            <>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                User: {user.email}
+              </Typography>
 
-          <Divider sx={{my: 2}} />
+              <Divider sx={{my: 2}} />
 
           <Typography variant="h6" gutterBottom>
             Approval Flow Configuration
@@ -324,10 +376,12 @@ const ApprovalSettingsDialog: React.FC<ApprovalSettingsDialogProps> = ({
               />
             </FormControl>
           )}
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button type="submit" variant="contained">
+          <Button type="submit" variant="contained" disabled={loading}>
             Save Settings
           </Button>
         </DialogActions>

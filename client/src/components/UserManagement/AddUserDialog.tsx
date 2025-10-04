@@ -151,7 +151,7 @@ const AddUserDialog: React.FC<AddUserDialogProps> = ({open, onClose, onUserAdded
                     {...field}
                     label="Manager (Optional)"
                     value={field.value || ""}
-                    onChange={(e) => field.onChange(e.target.value === "" ? null : e.target.value)}
+                    onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
                   >
                     <MenuItem value="">None</MenuItem>
                     {managers.map((manager) => (
